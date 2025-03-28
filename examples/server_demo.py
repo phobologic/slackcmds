@@ -76,6 +76,7 @@ from slackcmds.core.validation import (
     Parameter, ParameterType, min_length, max_length, 
     min_value, max_value, pattern, register_parameter_type, register_validator
 )
+from slackcmds.core import block_kit
 
 # Load environment variables first so we can use them for logging
 load_dotenv()
@@ -175,7 +176,7 @@ class ForecastWeatherCommand(Command):
 
 
 # ======================================================
-# New commands using the Phase 5 Validation Framework
+# Phase 5 Commands - Input Validation Framework
 # ======================================================
 
 class UserCommand(Command):
@@ -529,6 +530,235 @@ class SocialProfileCommand(Command):
         return CommandResponse.success(f"Twitter profile set to {handle}")
 
 
+# ======================================================
+# Phase 6 Commands - Block Kit Response Formatting
+# ======================================================
+
+class StatusCommand(Command):
+    """Show the system status with rich formatting."""
+    
+    def _execute_impl(self, context):
+        logger.debug(f"Executing StatusCommand with context: {context}")
+        
+        # Create blocks using Block Kit helpers
+        blocks = [
+            block_kit.header("System Status"),
+            block_kit.divider(),
+            block_kit.section("System Components", fields=[
+                "*Database:*\n:white_check_mark: Online",
+                "*API:*\n:white_check_mark: Operational",
+                "*Web Server:*\n:white_check_mark: Running"
+            ]),
+            block_kit.divider(),
+            block_kit.context(["Last updated: just now"])
+        ]
+        
+        return CommandResponse.with_blocks(blocks, ephemeral=False)
+
+
+class UserProfileCommand(Command):
+    """Display user profile information using Block Kit formatting."""
+    
+    def _execute_impl(self, context):
+        logger.debug(f"Executing UserProfileCommand with context: {context}")
+        
+        # Get user ID from context
+        user_id = context.get("user_id", "Unknown User")
+        
+        # Use CommandResponse.information helper method
+        user_details = [
+            f"*User:* <@{user_id}>",
+            "*Account Type:* Premium",
+            "*Status:* Active",
+            "*Member Since:* January 2023"
+        ]
+        
+        return CommandResponse.information(
+            "User Profile", 
+            user_details,
+            ephemeral=True
+        )
+
+
+class PermissionsCommand(Command):
+    """List permissions in a table format."""
+    
+    def _execute_impl(self, context):
+        logger.debug(f"Executing PermissionsCommand with context: {context}")
+        
+        # Use the table helper method
+        headers = ["Permission", "Description", "Default Role"]
+        rows = [
+            ["read", "Can read content", "Everyone"],
+            ["write", "Can create and edit content", "Editors"],
+            ["delete", "Can remove content", "Admins"],
+            ["admin", "Full system access", "Owners"]
+        ]
+        
+        return CommandResponse.table(
+            "System Permissions",
+            headers,
+            rows,
+            ephemeral=True
+        )
+
+
+class ConfirmCommand(Command):
+    """Show a confirmation dialog with interactive buttons."""
+    
+    def __init__(self):
+        super().__init__()
+        self.register_subcommand("delete", ConfirmDeleteCommand())
+        self.register_subcommand("publish", ConfirmPublishCommand())
+    
+    def _execute_impl(self, context):
+        logger.debug(f"Executing ConfirmCommand with context: {context}")
+        return self.show_help()
+
+
+class ConfirmDeleteCommand(Command):
+    """Show a confirmation dialog for deletion."""
+    
+    def _execute_impl(self, context):
+        logger.debug(f"Executing ConfirmDeleteCommand with context: {context}")
+        
+        # Create buttons using block_kit helpers
+        choices = [
+            block_kit.button("Yes, Delete", "confirm_delete", style="danger"),
+            block_kit.button("Cancel", "cancel_delete")
+        ]
+        
+        return CommandResponse.confirmation(
+            "Confirm Deletion",
+            "Are you sure you want to delete this item? This action cannot be undone.",
+            choices,
+            ephemeral=True
+        )
+
+
+class ConfirmPublishCommand(Command):
+    """Show a confirmation dialog for publishing."""
+    
+    def _execute_impl(self, context):
+        logger.debug(f"Executing ConfirmPublishCommand with context: {context}")
+        
+        # Create buttons using block_kit helpers
+        choices = [
+            block_kit.button("Publish Now", "publish_now", style="primary"),
+            block_kit.button("Schedule", "schedule_publish"),
+            block_kit.button("Cancel", "cancel_publish")
+        ]
+        
+        return CommandResponse.confirmation(
+            "Publish Content",
+            "How would you like to publish this content?",
+            choices,
+            ephemeral=True
+        )
+
+
+class FormCommand(Command):
+    """Show a form for collecting information."""
+    
+    def __init__(self):
+        super().__init__()
+        self.register_subcommand("event", EventFormCommand())
+        self.register_subcommand("feedback", FeedbackFormCommand())
+    
+    def _execute_impl(self, context):
+        logger.debug(f"Executing FormCommand with context: {context}")
+        return self.show_help()
+
+
+class EventFormCommand(Command):
+    """Show a form for creating an event."""
+    
+    def _execute_impl(self, context):
+        logger.debug(f"Executing EventFormCommand with context: {context}")
+        
+        # Create input elements for the form
+        input_elements = [
+            block_kit.input_block(
+                "Event Name",
+                block_kit.plain_text_input("event_name", placeholder="Enter event name")
+            ),
+            block_kit.input_block(
+                "Date",
+                block_kit.plain_text_input("event_date", placeholder="YYYY-MM-DD")
+            ),
+            block_kit.input_block(
+                "Description",
+                block_kit.plain_text_input("event_description", placeholder="Enter event description", multiline=True),
+                optional=True
+            ),
+            block_kit.input_block(
+                "Event Type",
+                block_kit.select_menu(
+                    "Select event type",
+                    "event_type",
+                    [
+                        block_kit.option("Meeting", "meeting"),
+                        block_kit.option("Conference", "conference"),
+                        block_kit.option("Workshop", "workshop"),
+                        block_kit.option("Other", "other")
+                    ]
+                )
+            )
+        ]
+        
+        return CommandResponse.form(
+            "Create New Event",
+            input_elements,
+            submit_label="Create Event",
+            ephemeral=True
+        )
+
+
+class FeedbackFormCommand(Command):
+    """Show a form for submitting feedback."""
+    
+    def _execute_impl(self, context):
+        logger.debug(f"Executing FeedbackFormCommand with context: {context}")
+        
+        # Create input elements for the form
+        input_elements = [
+            block_kit.input_block(
+                "Rating",
+                block_kit.select_menu(
+                    "How would you rate your experience?",
+                    "rating",
+                    [
+                        block_kit.option("Excellent", "5"),
+                        block_kit.option("Good", "4"),
+                        block_kit.option("Average", "3"),
+                        block_kit.option("Below Average", "2"),
+                        block_kit.option("Poor", "1")
+                    ]
+                )
+            ),
+            block_kit.input_block(
+                "Feedback",
+                block_kit.plain_text_input(
+                    "feedback_text", 
+                    placeholder="Please share your thoughts...",
+                    multiline=True
+                )
+            ),
+            block_kit.input_block(
+                "Name",
+                block_kit.plain_text_input("name", placeholder="Your name (optional)"),
+                optional=True
+            )
+        ]
+        
+        return CommandResponse.form(
+            "Submit Feedback",
+            input_elements,
+            submit_label="Submit",
+            ephemeral=True
+        )
+
+
 def setup_demo_app():
     """Set up and configure the demo Slack app."""
     logger.debug("Setting up demo Slack app")
@@ -551,7 +781,7 @@ def setup_demo_app():
     registry.register_command("weather", WeatherCommand())
     logger.debug("Registered commands: greet, echo, weather")
     
-    # Register Phase 5 commands (new with validation)
+    # Register Phase 5 commands (with validation)
     logger.info("Registering Phase 5 commands with validation...")
     registry.register_command("user", UserCommand())
     registry.register_command("calc", CalculatorCommand())
@@ -562,6 +792,16 @@ def setup_demo_app():
     registry.register_command("social", social_cmd)
     
     logger.debug("Registered commands: user, calc, social")
+    
+    # Register Phase 6 commands (with Block Kit formatting)
+    logger.info("Registering Phase 6 commands with Block Kit formatting...")
+    registry.register_command("status", StatusCommand())
+    registry.register_command("profile", UserProfileCommand())
+    registry.register_command("permissions", PermissionsCommand())
+    registry.register_command("confirm", ConfirmCommand())
+    registry.register_command("form", FormCommand())
+    
+    logger.debug("Registered Block Kit commands: status, profile, permissions, confirm, form")
     
     # Handle the slash command
     @app.command("/demo")

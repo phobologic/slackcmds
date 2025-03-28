@@ -8,5 +8,6 @@ and routing Slack commands.
 from .command import Command
 from .response import CommandResponse
 from .registry import CommandRegistry
+from . import block_kit
 
-__all__ = ['Command', 'CommandResponse', 'CommandRegistry']
+__all__ = ['Command', 'CommandResponse', 'CommandRegistry', 'block_kit']

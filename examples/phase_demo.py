@@ -8,6 +8,7 @@ This script progressively demonstrates the features implemented in:
 - Phase 3: Help System Implementation
 - Phase 4: Server Integration with Slack Bolt
 - Phase 5: Input Validation Framework
+- Phase 6: Block Kit Response Formatting
 """
 
 import time
@@ -20,6 +21,7 @@ from slackcmds.core.command import Command
 from slackcmds.core.response import CommandResponse
 from slackcmds.core.registry import CommandRegistry
 from slackcmds.core.validation import Parameter, ParameterType, min_length, min_value, max_value
+from slackcmds.core import block_kit
 
 
 def separator(title):
@@ -560,9 +562,193 @@ def phase5_demo(registry):
     return registry
 
 
+def phase6_demo(registry):
+    """Demonstrate Phase 6: Block Kit Response Formatting."""
+    separator("PHASE 6: BLOCK KIT RESPONSE FORMATTING")
+    
+    print("Demonstrating Block Kit response formatting...\n")
+    
+    # Create commands that utilize Block Kit formatting
+    class StatusCommand(Command):
+        """Show system status with rich formatting."""
+        
+        def execute(self, context=None):
+            # Use the block_kit module to create blocks
+            blocks = [
+                block_kit.header("System Status"),
+                block_kit.divider(),
+                block_kit.section("System Components", fields=[
+                    "*Database:*\n:white_check_mark: Online",
+                    "*API:*\n:white_check_mark: Operational",
+                    "*Web Server:*\n:white_check_mark: Running"
+                ]),
+                block_kit.divider(),
+                block_kit.context(["Last updated: just now"])
+            ]
+            
+            return CommandResponse.with_blocks(blocks, ephemeral=False)
+    
+    # Register the command
+    registry.register_command("status", StatusCommand())
+    
+    # Create a command using the pre-built Block Kit response methods
+    class UserProfileCommand(Command):
+        """Display user profile information."""
+        
+        def execute(self, context=None):
+            # Use CommandResponse.information helper method
+            user_details = [
+                "*Name:* John Doe",
+                "*Email:* john@example.com",
+                "*Role:* Administrator",
+                "*Status:* Active"
+            ]
+            
+            return CommandResponse.information(
+                "User Profile", 
+                user_details,
+                ephemeral=False
+            )
+    
+    # Create a command for tabular data
+    class ListPermissionsCommand(Command):
+        """List permissions in a table format."""
+        
+        def execute(self, context=None):
+            # Use CommandResponse.table helper
+            headers = ["Permission", "Description", "Default"]
+            rows = [
+                ["read", "Can read documents", "All users"],
+                ["write", "Can create and edit documents", "Editors"],
+                ["admin", "Full system access", "Administrators"]
+            ]
+            
+            return CommandResponse.table(
+                "System Permissions",
+                headers,
+                rows,
+                ephemeral=False
+            )
+    
+    # Create a command with interactive buttons
+    class ConfirmActionCommand(Command):
+        """Demonstrate an action confirmation dialog."""
+        
+        def execute(self, context=None):
+            # Create buttons using block_kit helpers
+            choices = [
+                block_kit.button("Approve", "approve_action", style="primary"),
+                block_kit.button("Reject", "reject_action", style="danger")
+            ]
+            
+            return CommandResponse.confirmation(
+                "Confirm Action",
+                "Are you sure you want to proceed with this action?",
+                choices,
+                ephemeral=True
+            )
+    
+    # Create a command that displays a form
+    class CreateItemCommand(Command):
+        """Show a form for creating a new item."""
+        
+        def execute(self, context=None):
+            # Create input elements
+            input_elements = [
+                block_kit.input_block(
+                    "Item Name",
+                    block_kit.plain_text_input("item_name", placeholder="Enter item name")
+                ),
+                block_kit.input_block(
+                    "Description",
+                    block_kit.plain_text_input("description", placeholder="Enter description", multiline=True),
+                    optional=True
+                ),
+                block_kit.input_block(
+                    "Category",
+                    block_kit.select_menu(
+                        "Select a category",
+                        "category",
+                        [
+                            block_kit.option("Product", "product"),
+                            block_kit.option("Service", "service"),
+                            block_kit.option("Other", "other")
+                        ]
+                    )
+                )
+            ]
+            
+            return CommandResponse.form(
+                "Create New Item",
+                input_elements,
+                submit_label="Create",
+                ephemeral=True
+            )
+    
+    # Register all the commands
+    registry.register_command("profile", UserProfileCommand())
+    registry.register_command("permissions", ListPermissionsCommand())
+    registry.register_command("confirm", ConfirmActionCommand())
+    registry.register_command("create-item", CreateItemCommand())
+    
+    # Test and demonstrate the commands
+    print("Demonstrating various Block Kit responses:")
+    
+    # System status with custom blocks
+    print("\n1. System Status (custom blocks):")
+    response = registry.route_command("status", {})
+    blocks = response.content
+    
+    # Print the blocks with indentation for readability
+    import json
+    for i, block in enumerate(blocks):
+        print(f"\nBlock {i+1}:")
+        print(json.dumps(block, indent=2))
+    
+    # User profile with information helper
+    print("\n2. User Profile (information helper):")
+    response = registry.route_command("profile", {})
+    blocks = response.content
+    
+    for i, block in enumerate(blocks):
+        print(f"\nBlock {i+1}:")
+        print(json.dumps(block, indent=2))
+    
+    # Table formatting
+    print("\n3. Permissions Table (table helper):")
+    response = registry.route_command("permissions", {})
+    blocks = response.content
+    
+    for i, block in enumerate(blocks):
+        print(f"\nBlock {i+1}:")
+        print(json.dumps(block, indent=2))
+    
+    # Confirmation with buttons
+    print("\n4. Confirmation Dialog (confirmation helper):")
+    response = registry.route_command("confirm", {})
+    blocks = response.content
+    
+    for i, block in enumerate(blocks):
+        print(f"\nBlock {i+1}:")
+        print(json.dumps(block, indent=2))
+    
+    # Form with inputs
+    print("\n5. Create Item Form (form helper):")
+    response = registry.route_command("create-item", {})
+    blocks = response.content
+    
+    for i, block in enumerate(blocks):
+        print(f"\nBlock {i+1}:")
+        print(json.dumps(block, indent=2))
+    
+    print("\nBlock Kit response formatting demonstration complete!")
+    
+    return registry
+
+
 if __name__ == "__main__":
     print("PROGRESSIVE DEMO OF SLACK COMMANDS LIBRARY")
-    print("This demonstrates the features implemented in Phases 1-5")
+    print("This demonstrates the features implemented in Phases 1-6")
     
     # Run Phase 1 demo
     HelloCommand = phase1_demo()
@@ -589,4 +775,10 @@ if __name__ == "__main__":
     time.sleep(1)
     
     # Run Phase 5 demo
-    phase5_demo(registry) 
+    registry = phase5_demo(registry)
+    
+    # Pause for readability
+    time.sleep(1)
+    
+    # Run Phase 6 demo
+    phase6_demo(registry) 
