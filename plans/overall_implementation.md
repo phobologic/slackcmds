@@ -311,17 +311,17 @@ print("Invalid email:", response.as_dict())
 
 ## Phase 6: Block Kit Response Formatting
 
-- [ ] **Implement Block Kit helper methods**
+- [x] **Implement Block Kit helper methods**
   - Create methods for common Block Kit components
   - Add response formatting utilities
   - Support for rich formatting
 
-- [ ] **Response templates**
+- [x] **Response templates**
   - Standard layouts for different response types
   - Helper methods for consistent UX
   - Formatting for different contexts
 
-- [ ] **Support for ephemeral vs. channel responses**
+- [x] **Support for ephemeral vs. channel responses**
   - Distinguish between private and public responses
   - Clear API for controlling visibility
   - Default visibility settings
