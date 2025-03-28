@@ -60,19 +60,20 @@ response = hello_cmd.execute()
 print("\nCustom command response:")
 print(response.as_dict())
 ```
+
 ## Phase 2: Command Registry and Routing
 
-- [ ] **Implement CommandRegistry class**
+- [x] **Implement CommandRegistry class**
   - Create registration methods for top-level commands
   - Implement command routing logic
   - Add support for extracting subcommands from input
 
-- [ ] **Implement subcommand registration**
+- [x] **Implement subcommand registration**
   - Add methods for registering subcommands
   - Create logic for linking parent and child commands
   - Implement command chain parsing
 
-- [ ] **Command execution flow**
+- [x] **Command execution flow**
   - Implement command string tokenization
   - Create context object structure
   - Set up execution pipeline
