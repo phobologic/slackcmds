@@ -20,6 +20,6 @@ Ok, lets move on to implementing Phase 4 of the plan in @overall_implementation.
 1. Implement the required changes for the step.
 2. Implement any testing for the step.
 3. Run newly implemented steps for the test.
-4. Update @phase_demo.py  with the demo for this phase.
+4. Update @server_demo.py  with the demo for this phase.
 
 Before you begin, do you have any questions?  If not, go ahead and begin with the implementation.  Once you are complete, please pause and wait for further instructions.
