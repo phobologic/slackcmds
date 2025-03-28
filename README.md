@@ -20,6 +20,16 @@ A Python library that provides a clean, intuitive framework for building Slack s
 - Python 3.8+
 - A Slack workspace with permissions to add apps
 
+### Using UV (Recommended)
+
+```bash
+# Install uv if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install slackcmds
+uv pip install slackcmds
+```
+
 ### Using pip
 
 ```bash
@@ -29,9 +39,14 @@ pip install slackcmds
 ### From source
 
 ```bash
-git clone https://github.com/yourusername/slackcmds.git
+git clone https://github.com/phobologic/slackcmds.git
 cd slackcmds
-pip install -e .
+
+# Using UV (Recommended)
+uv venv
+source .venv/bin/activate
+uv sync
+uv pip install -e .
 ```
 
 ## Quick Start
@@ -209,12 +224,55 @@ The library includes comprehensive testing utilities. See the `tests/` directory
 ### Running Tests
 
 ```bash
-pytest
+# Using UV (Recommended)
+uv sync
+uv run pytest
+
+# or run with debug output
+uv run pytest -o log_cli_level=DEBUG -v
+```
+
+## Development
+
+### Setting up a development environment
+
+```bash
+# Clone the repository
+git clone https://github.com/phobologic/slackcmds.git
+cd slackcmds
+
+# Create and activate a virtual environment with UV
+uv venv
+source .venv/bin/activate
+
+# Install required packages
+uv sync
+
+# Install the package with development dependencies
+uv pip install -e .
 ```
 
 ## Examples
 
 Check the `examples/` directory for more detailed examples.
+
+### Slack Integration Example
+
+The repository includes a comprehensive example (`examples/server_demo.py`) that demonstrates how to integrate the library with Slack:
+
+- Complete Slack Bolt app setup with Socket Mode support
+- Multiple command examples with nested subcommands
+- Input validation demonstration
+- Rich Block Kit formatting examples
+- Detailed step-by-step setup instructions in the file header
+
+This example includes instructions in its docstring on how to:
+1. Create a Slack app in the Slack API Console
+2. Set up Socket Mode
+3. Configure slash commands
+4. Set up Bot Token Scopes
+5. Install the app to your workspace
+6. Run the demo with proper environment variables (with uv: `uv run python ./examples/server_demo.py` after you setup the necessary env vars)
 
 ## License
 
