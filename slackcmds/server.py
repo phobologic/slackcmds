@@ -45,6 +45,7 @@ def register_commands() -> None:
     """
     # This is where you would register your commands
     # Example: registry.register_command("user", UserCommand())
+    logger.debug("No commands registered with the registry")
     pass
 
 
@@ -60,19 +61,36 @@ def handle_command(ack: Ack, command: Dict[str, Any], say: Say) -> None:
     ack()  # Acknowledge receipt of the command
     
     logger.info(f"Received command: {command['text']}")
+    logger.debug(f"Full command payload: {command}")
+    
+    # Parse command text to extract tokens
+    text = command["text"].strip() if command.get("text") else ""
+    tokens = []
+    
+    # Split the command text into tokens
+    parts = text.split()
+    if len(parts) > 1:  # If we have more than just the command
+        tokens = parts[1:]  # Everything after the command name
+        logger.debug(f"Extracted tokens: {tokens}")
     
     # Create context object with command information
     context = {
         "user_id": command["user_id"],
         "channel_id": command["channel_id"],
         "team_id": command["team_id"],
+        "text": text,
+        "tokens": tokens,
         "command": command
     }
+    logger.debug(f"Created context: {context}")
     
     # Route the command
+    logger.debug(f"Routing command: '{text}'")
     result = registry.route_command(command["text"], context)
+    logger.debug(f"Command result: {result.__dict__}")
     
     # Send the response
+    logger.debug(f"Sending response: {result.as_dict()}")
     if result.success:
         say(result.as_dict())
     else:
@@ -89,17 +107,20 @@ def start_server() -> NoReturn:
     Raises:
         ValueError: If required environment variables are missing.
     """
+    logger.debug("Initializing server")
     register_commands()
     
     # Check if we're using Socket Mode
     if os.environ.get("SLACK_APP_TOKEN"):
         logger.info("Starting in Socket Mode")
+        logger.debug(f"Using app token: {os.environ.get('SLACK_APP_TOKEN')[:10]}***")
         handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
         handler.start()
     else:
         # HTTP mode
         port = int(os.environ.get("PORT", 3000))
         logger.info(f"Starting HTTP server on port {port}")
+        logger.debug("HTTP mode selected, no app token provided")
         app.start(port=port)
 
 

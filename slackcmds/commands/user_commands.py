@@ -15,11 +15,11 @@ class ListCommand(Command):
     In a real implementation, this would query the Slack API for actual user data.
     """
     
-    def execute(self, context: Optional[Dict[str, Any]] = None) -> CommandResponse:
+    def _execute_impl(self, context: Dict[str, Any]) -> CommandResponse:
         """Execute the list command.
         
         Args:
-            context: Optional context dictionary containing command metadata.
+            context: Context dictionary containing command metadata.
             
         Returns:
             CommandResponse containing the list of users.
@@ -35,17 +35,17 @@ class InfoCommand(Command):
     In a real implementation, this would look up user data from the Slack API.
     """
     
-    def execute(self, context: Optional[Dict[str, Any]] = None) -> CommandResponse:
+    def _execute_impl(self, context: Dict[str, Any]) -> CommandResponse:
         """Execute the info command.
         
         Args:
-            context: Optional context dictionary containing command metadata.
+            context: Context dictionary containing command metadata.
             
         Returns:
             CommandResponse containing the user information.
         """
         # In a real implementation, this would look up user info from Slack API
-        user_id = context.get("user_id", "unknown") if context else "unknown"
+        user_id = context.get("user_id", "unknown")
         return CommandResponse(f"User information for <@{user_id}>:\nMember since: 2023-01-01\nStatus: Active")
 
 
@@ -70,11 +70,11 @@ class SetStatusCommand(Command):
     In a real implementation, this would update the status via the Slack API.
     """
     
-    def execute(self, context: Optional[Dict[str, Any]] = None) -> CommandResponse:
+    def _execute_impl(self, context: Dict[str, Any]) -> CommandResponse:
         """Execute the set status command.
         
         Args:
-            context: Optional context dictionary containing command metadata.
+            context: Context dictionary containing command metadata.
             
         Returns:
             CommandResponse indicating the status update result.
@@ -90,11 +90,11 @@ class GetStatusCommand(Command):
     In a real implementation, this would query the status from the Slack API.
     """
     
-    def execute(self, context: Optional[Dict[str, Any]] = None) -> CommandResponse:
+    def _execute_impl(self, context: Dict[str, Any]) -> CommandResponse:
         """Execute the get status command.
         
         Args:
-            context: Optional context dictionary containing command metadata.
+            context: Context dictionary containing command metadata.
             
         Returns:
             CommandResponse containing the current status.

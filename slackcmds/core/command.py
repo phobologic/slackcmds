@@ -23,6 +23,10 @@ class Command:
     It provides common functionality like help text generation and 
     subcommand registration.
     
+    IMPORTANT: When implementing custom commands, ONLY override _execute_impl().
+    NEVER override execute() as it handles critical functionality like help text 
+    processing and validation. Overriding execute() will break these features.
+    
     Attributes:
         name: The name of the command.
         subcommands: Dictionary of registered subcommands.
@@ -53,15 +57,15 @@ class Command:
         self.name = name
         return cast(T, self)
     
-    def set_help(self, short_help: Optional[str] = None, long_help: Optional[str] = None, 
-                usage_example: Optional[str] = None, use_block_kit: bool = False) -> T:
+    def set_help(self, short_help: Optional[str] = None, 
+                long_help: Optional[str] = None,
+                usage_example: Optional[str] = None) -> T:
         """Override the default help text generated from docstrings.
         
         Args:
-            short_help: Brief description of the command.
+            short_help: Short description of the command.
             long_help: Detailed help text for the command.
             usage_example: Example of how to use the command.
-            use_block_kit: Whether to use Block Kit formatting for help display.
             
         Returns:
             Self for method chaining.
@@ -69,14 +73,17 @@ class Command:
         self.short_help = short_help
         self.long_help = long_help
         self.usage_example = usage_example
-        self.use_block_kit = use_block_kit
         return cast(T, self)
-        
+    
     def execute(self, context: Optional[Dict[str, Any]] = None) -> CommandResponse:
         """Execute the command logic.
         
-        This method should be overridden by subclasses to implement
-        command-specific behavior.
+        This is the main entry point for command execution. It handles common
+        functionality like help text processing and validation.
+        
+        WARNING: DO NOT OVERRIDE THIS METHOD IN SUBCLASSES! 
+        Always override _execute_impl() instead to implement command-specific behavior.
+        Overriding this method will break help handling and other core functionality.
         
         Args:
             context: Dictionary containing execution context information.
@@ -85,22 +92,50 @@ class Command:
             CommandResponse: The result of command execution.
         """
         try:
-            logger.debug(f"Executing command: {self.name}")
+            logger.debug(f"Executing command: {self.name} with context: {context}")
             
             # Initialize context if None
             if context is None:
                 context = {}
+                
+            # HIGHEST PRIORITY: Check if this is a help request
+            # Look for 'help' as the first token
+            tokens = context.get("tokens", [])
+            if tokens and tokens[0].lower() == "help":
+                logger.debug(f"Help token detected in command {self.name} - tokens: {tokens}")
+                # If there's a second token, it might be a specific subcommand
+                if len(tokens) > 1 and tokens[1] in self.subcommands:
+                    subcmd_name = tokens[1]
+                    logger.debug(f"Help requested for specific subcommand: {subcmd_name}")
+                    return self.subcommands[subcmd_name].show_help()
+                # Return general help for this command
+                logger.debug(f"Showing general help for command: {self.name}")
+                return self.show_help()
             
             # Validate input if needed
             validation_result = self.validate(context)
             if not validation_result.success:
+                logger.debug(f"Validation failed for command {self.name}")
                 return validation_result
-            
-            # If there are subcommands but none specified, show help
-            if self.subcommands and not context.get('subcommand'):
+                            
+            # If there are subcommands but no explicit command execution,
+            # default to showing help
+            if self.subcommands and not self._has_custom_execution():
+                logger.debug(f"Command {self.name} has subcommands but no custom execution - showing help")
                 return self.show_help()
             
-            # Default implementation for commands without overridden execute
+            # Check for implementation
+            if self._has_custom_execution():
+                # If we got here, this is a valid command execution
+                logger.debug(f"Proceeding with execution of command {self.name} using _execute_impl")
+                return self._execute_impl(context)
+            
+            # No implementation found
+            logger.debug(f"Command {self.name} has no implementation")
+            # Additional detailed logging for better debugging
+            logger.debug(f"Command class: {self.__class__.__name__}")
+            logger.debug(f"Command's direct methods: {list(self.__class__.__dict__.keys())}")
+            logger.debug(f"Parent class: {self.__class__.__bases__[0].__name__}")
             return CommandResponse(
                 f"Command '{self.name}' doesn't have an implementation.",
                 success=False
@@ -114,6 +149,44 @@ class Command:
                 f"An unexpected error occurred: {str(e)}",
                 success=False
             )
+    
+    def _has_custom_execution(self) -> bool:
+        """Check if this command has a custom execute implementation.
+        
+        Returns:
+            bool: True if the _execute_impl method is overridden, False otherwise.
+        """
+        # Get the method from the instance's class
+        cmd_impl = self.__class__.__dict__.get('_execute_impl')
+        
+        # Check if the method exists in this class (not inherited)
+        # and that this isn't the base Command class (which defines _execute_impl but isn't a custom implementation)
+        has_impl = cmd_impl is not None and self.__class__ is not Command
+        
+        logger.debug(f"Command {self.name} (class: {self.__class__.__name__}) - " 
+                  f"has custom implementation: {has_impl}")
+        
+        return has_impl
+    
+    def _execute_impl(self, context: Dict[str, Any]) -> CommandResponse:
+        """Actual implementation of command execution.
+        
+        This is the method that should be overridden by subclasses to implement
+        command-specific behavior. Overriding this method ensures that help text
+        and validation logic in the base execute() method are preserved.
+        
+        Args:
+            context: Dictionary containing execution context information.
+        
+        Returns:
+            CommandResponse: The result of command execution.
+        """
+        # This should never be called directly, as _has_custom_execution would return False
+        # and the execute method would show help or return an error
+        return CommandResponse(
+            f"Command '{self.name}' doesn't have an implementation.",
+            success=False
+        )
     
     def validate(self, context: Optional[Dict[str, Any]] = None) -> CommandResponse:
         """Validate command input before execution.

@@ -8,14 +8,14 @@ from slackcmds.core.response import CommandResponse
 class SampleCommand(Command):
     """Test command implementation."""
     
-    def execute(self, context=None):
+    def _execute_impl(self, context):
         return CommandResponse("Test command executed")
 
 
 class SampleSubCommand(Command):
     """Test subcommand implementation."""
     
-    def execute(self, context=None):
+    def _execute_impl(self, context):
         return CommandResponse("Test subcommand executed")
 
 
@@ -115,3 +115,36 @@ def test_command_show_help():
     assert "Command 1 help" in result.content
     assert "cmd2" in result.content
     assert "Test subcommand implementation" in result.content
+
+
+def test_command_help_detection():
+    """Test that help tokens are properly detected and handled."""
+    cmd = Command()
+    cmd._set_name("test")
+    
+    # Add a subcommand
+    subcmd = SampleSubCommand()
+    cmd.register_subcommand("sub", subcmd)
+    
+    # Test help for main command
+    result = cmd.execute({"tokens": ["help"]})
+    
+    assert isinstance(result, CommandResponse)
+    assert "Help: test" in result.content
+    
+    # Test help for specific subcommand
+    result = cmd.execute({"tokens": ["help", "sub"]})
+    
+    assert isinstance(result, CommandResponse)
+    assert "Help: test sub" in result.content
+
+
+def test_has_custom_execution():
+    """Test that _has_custom_execution correctly identifies custom implementations."""
+    # Command with no custom implementation
+    cmd = Command()
+    assert cmd._has_custom_execution() is False
+    
+    # Command with custom implementation
+    cmd = SampleCommand()
+    assert cmd._has_custom_execution() is True

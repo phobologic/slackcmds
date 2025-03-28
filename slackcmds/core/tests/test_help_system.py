@@ -18,14 +18,14 @@ class SampleCommand(Command):
     multiple lines for testing purposes.
     """
     
-    def execute(self, context=None):
+    def _execute_impl(self, context):
         return CommandResponse("Sample command executed")
 
 
 class SampleSubCommand(Command):
     """A sample subcommand for testing."""
     
-    def execute(self, context=None):
+    def _execute_impl(self, context):
         return CommandResponse("Sample subcommand executed")
 
 
@@ -96,8 +96,8 @@ def test_block_kit_help_generation():
     cmd = SampleCommand()
     cmd._set_name("sample")
     
-    # Set to use Block Kit
-    cmd.set_help(use_block_kit=True)
+    # Set to use Block Kit as a class variable
+    cmd.use_block_kit = True
     
     # Get help response
     response = cmd.show_help()
@@ -125,7 +125,8 @@ def test_block_kit_help_with_usage():
     cmd._set_name("sample")
     
     # Set usage example and Block Kit format
-    cmd.set_help(usage_example="sample [options]", use_block_kit=True)
+    cmd.set_help(usage_example="sample [options]")
+    cmd.use_block_kit = True
     
     # Get help response
     response = cmd.show_help()
