@@ -148,3 +148,150 @@ def test_has_custom_execution():
     # Command with custom implementation
     cmd = SampleCommand()
     assert cmd._has_custom_execution() is True
+
+
+def test_show_invalid_subcommand_error():
+    """Test that show_invalid_subcommand_error generates proper error messages."""
+    # Setup a command with subcommands
+    cmd = Command()
+    cmd._set_name("test")
+    
+    subcmd1 = SampleCommand().set_help("Command 1 help")
+    subcmd2 = SampleSubCommand()  # Uses docstring
+    
+    cmd.register_subcommand("cmd1", subcmd1)
+    cmd.register_subcommand("cmd2", subcmd2)
+    
+    # Test error message
+    result = cmd.show_invalid_subcommand_error("invalid")
+    
+    assert isinstance(result, CommandResponse)
+    assert result.success is False
+    assert "Error: 'invalid' is not a valid subcommand for 'test'" in result.content
+    assert "Help: test" in result.content
+    assert "Available Subcommands" in result.content
+    assert "cmd1" in result.content
+    assert "cmd2" in result.content
+    
+    # Test with Block Kit formatting
+    cmd.use_block_kit = True
+    result = cmd.show_invalid_subcommand_error("invalid")
+    
+    assert isinstance(result, CommandResponse)
+    assert result.success is False
+    
+    # Block Kit response should have content as a list of blocks
+    assert isinstance(result.content, list)
+    
+    # Check first block has error message
+    assert "Error: 'invalid' is not a valid subcommand for 'test'" in result.content[0]["text"]["text"]
+
+
+def test_invalid_subcommand_detection():
+    """Test that invalid subcommands are detected and show appropriate error."""
+    # Setup a command with subcommands
+    cmd = Command()
+    cmd._set_name("parent")
+    
+    subcmd1 = SampleCommand()
+    subcmd2 = SampleSubCommand()
+    
+    cmd.register_subcommand("valid1", subcmd1)
+    cmd.register_subcommand("valid2", subcmd2)
+    
+    # Test with an invalid subcommand
+    result = cmd.execute({"tokens": ["invalid"]})
+    
+    assert isinstance(result, CommandResponse)
+    assert result.success is False
+    assert "Error: 'invalid' is not a valid subcommand for 'parent'" in result.content
+    
+    # Test with a command that has custom implementation and subcommands
+    class CustomParentCommand(Command):
+        """Custom parent command with implementation."""
+        
+        def __init__(self):
+            super().__init__()
+            self.register_subcommand("sub", SampleSubCommand())
+            # Explicitly set to True to indicate this command can handle any tokens
+            self.accepts_arguments = True
+        
+        def _execute_impl(self, context):
+            if "tokens" in context and context["tokens"]:
+                # Parent command with tokens should handle them itself
+                return CommandResponse(f"Parent handled: {context['tokens'][0]}")
+            return CommandResponse("Parent executed")
+    
+    parent_cmd = CustomParentCommand()
+    parent_cmd._set_name("custom")
+    
+    # Test with an "invalid" token that should be handled by the parent
+    result = parent_cmd.execute({"tokens": ["something"]})
+    
+    # This should NOT trigger invalid subcommand error because the parent
+    # accepts arguments
+    assert isinstance(result, CommandResponse)
+    assert result.success is True
+    assert result.content == "Parent handled: something"
+
+
+def test_command_with_registry_integration():
+    """Test that commands and registry work together to handle subcommands."""
+    # Import registry here to avoid circular imports in the module
+    from slackcmds.core.registry import CommandRegistry
+    
+    # Create a registry
+    registry = CommandRegistry()
+    
+    # Create and register a top-level command with subcommands
+    class WeatherCommand(Command):
+        """Get weather information."""
+        
+        def __init__(self):
+            super().__init__()
+            self.register_subcommand("today", TodayCommand())
+            self.register_subcommand("forecast", ForecastCommand())
+            # Command with subcommands doesn't accept arbitrary arguments
+            self.accepts_arguments = False
+        
+        def _execute_impl(self, context):
+            # The base class now handles invalid subcommands automatically
+            return self.show_help()
+    
+    class TodayCommand(Command):
+        """Get today's weather."""
+        
+        def _execute_impl(self, context):
+            return CommandResponse("Today's weather: Sunny and 75°F")
+    
+    class ForecastCommand(Command):
+        """Get weather forecast."""
+        
+        def _execute_impl(self, context):
+            return CommandResponse("Weather forecast for the week")
+    
+    # Register the command
+    registry.register_command("weather", WeatherCommand())
+    
+    # Test with a valid subcommand
+    result = registry.route_command("weather today")
+    
+    assert isinstance(result, CommandResponse)
+    assert result.success is True
+    assert result.content == "Today's weather: Sunny and 75°F"
+    
+    # Test with an invalid subcommand
+    result = registry.route_command("weather invalid")
+    
+    assert isinstance(result, CommandResponse)
+    assert result.success is False
+    assert "Error: 'invalid' is not a valid subcommand for 'weather'" in result.content
+    
+    # Test without a subcommand (should show help)
+    result = registry.route_command("weather")
+    
+    assert isinstance(result, CommandResponse)
+    assert "Help: weather" in result.content
+    assert "Available Subcommands" in result.content
+    assert "today" in result.content
+    assert "forecast" in result.content

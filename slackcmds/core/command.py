@@ -44,6 +44,11 @@ class Command:
         self.long_help: Optional[str] = None
         self.usage_example: Optional[str] = None
         self.use_block_kit: bool = False
+        # Flag to indicate if this command accepts arguments or requires valid subcommands
+        # When True, any tokens are passed to _execute_impl to handle as arguments
+        # When False, the first token must be a valid subcommand, otherwise an error is shown
+        # By default, commands without subcommands accept arguments, and commands with subcommands don't
+        self.accepts_arguments: bool = True
     
     def _set_name(self, name: str) -> T:
         """Set the command name (called during registration).
@@ -117,6 +122,14 @@ class Command:
             if not validation_result.success:
                 logger.debug(f"Validation failed for command {self.name}")
                 return validation_result
+            
+            # If this command has subcommands AND doesn't accept arguments,
+            # check if the first token is a valid subcommand
+            if self.subcommands and not self.accepts_arguments and tokens:
+                first_token = tokens[0].lower()
+                if first_token not in self.subcommands:
+                    logger.debug(f"Invalid subcommand '{first_token}' detected for command {self.name}")
+                    return self.show_invalid_subcommand_error(first_token)
                             
             # If there are subcommands but no explicit command execution,
             # default to showing help
@@ -200,6 +213,131 @@ class Command:
             CommandResponse: A response object indicating validation success/failure.
         """
         return CommandResponse("Input valid", success=True)
+    
+    def show_invalid_subcommand_error(self, invalid_arg: str) -> CommandResponse:
+        """Generate error response for invalid subcommand.
+        
+        Args:
+            invalid_arg: The invalid subcommand or argument that was provided.
+            
+        Returns:
+            CommandResponse: Error response with help text.
+        """
+        # Generate help text to append after error
+        title = f"Help: {self.name}"
+        
+        # Get command description from docstring or override
+        command_description = self.long_help
+        if not command_description and self.__doc__:
+            command_description = self.__doc__.strip()
+        
+        # Get usage example
+        usage = self.usage_example
+        if not usage and self.name:
+            usage = f"{self.name}"
+            
+        # If we're using Block Kit formatting
+        if self.use_block_kit:
+            blocks = [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f":x: Error: '{invalid_arg}' is not a valid subcommand for '{self.name}'."
+                    }
+                },
+                {
+                    "type": "header",
+                    "text": {
+                        "type": "plain_text",
+                        "text": title
+                    }
+                }
+            ]
+            
+            # Add description if available
+            if command_description:
+                blocks.append({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": command_description
+                    }
+                })
+            
+            # Add usage example if available
+            if usage:
+                blocks.append({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"*Usage:*\n`{usage}`"
+                    }
+                })
+            
+            # Add subcommands if any
+            if self.subcommands:
+                subcommand_text = "*Available Subcommands:*\n"
+                for subcmd_name, subcmd in self.subcommands.items():
+                    # Get short description from subcommand
+                    short_desc = subcmd.short_help
+                    if not short_desc and subcmd.__doc__:
+                        short_desc = subcmd.__doc__.strip().split('\n')[0]
+                    
+                    subcommand_text += f"• `{subcmd_name}`: {short_desc}\n"
+                
+                subcommand_text += f"\nUse `{self.name} help <subcommand>` for more details on a specific subcommand."
+                
+                blocks.append({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": subcommand_text
+                    }
+                })
+            
+            # Add divider and context
+            blocks.append({
+                "type": "divider"
+            })
+            
+            blocks.append({
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "Type `help` for a list of all commands."
+                    }
+                ]
+            })
+            
+            return CommandResponse.with_blocks(blocks, success=False)
+            
+        # Generate text-based help
+        error_message = f":x: Error: '{invalid_arg}' is not a valid subcommand for '{self.name}'.\n\n"
+        error_message += f"*{title}*\n\n"
+        
+        if command_description:
+            error_message += f"{command_description}\n\n"
+        
+        # Add usage example
+        if usage:
+            error_message += f"*Usage:*\n`{usage}`\n\n"
+        
+        # Add subcommands list if any
+        if self.subcommands:
+            error_message += "*Available Subcommands:*\n"
+            for subcmd_name, subcmd in self.subcommands.items():
+                # Get short description from subcommand
+                short_desc = subcmd.short_help
+                if not short_desc and subcmd.__doc__:
+                    short_desc = subcmd.__doc__.strip().split('\n')[0]
+                
+                error_message += f"• `{subcmd_name}`: {short_desc}\n"
+            
+            error_message += f"\nUse `{self.name} help <subcommand>` for more details on a specific subcommand."
+        
+        return CommandResponse(error_message, success=False)
     
     def show_help(self, specific_subcommand: Optional[str] = None) -> CommandResponse:
         """Show detailed help for this command or a specific subcommand.
@@ -344,5 +482,9 @@ class Command:
         """
         command_instance._set_name(f"{self.name} {name}")
         self.subcommands[name] = command_instance
+        # When a command has subcommands, by default it doesn't accept arbitrary arguments
+        # (unless explicitly set otherwise)
+        if len(self.subcommands) == 1:  # Only set it on first subcommand added
+            self.accepts_arguments = False
         logger.debug(f"Registered subcommand '{name}' for '{self.name}'")
         return command_instance

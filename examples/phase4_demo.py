@@ -100,7 +100,15 @@ class GreetingCommand(Command):
 
 
 class EchoCommand(Command):
-    """Echo back the input text."""
+    """Echo back the input text.
+    
+    Usage: echo <text>
+    """
+    
+    def __init__(self):
+        super().__init__()
+        # Explicitly indicate that this command accepts arbitrary arguments
+        self.accepts_arguments = True
     
     def _execute_impl(self, context):
         logger.debug(f"Executing EchoCommand implementation with context: {context}")
@@ -131,6 +139,8 @@ class WeatherCommand(Command):
         # Register subcommands
         self.register_subcommand("today", TodayWeatherCommand())
         self.register_subcommand("forecast", ForecastWeatherCommand())
+        # Command with subcommands doesn't accept arbitrary arguments (this is already the default)
+        self.accepts_arguments = False
         logger.debug("WeatherCommand initialized with subcommands")
     
     def _execute_impl(self, context):
