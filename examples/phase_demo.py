@@ -7,6 +7,7 @@ This script progressively demonstrates the features implemented in:
 - Phase 2: Command Registry and Routing
 - Phase 3: Help System Implementation
 - Phase 4: Server Integration with Slack Bolt
+- Phase 5: Input Validation Framework
 """
 
 import time
@@ -18,6 +19,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slackcmds.core.command import Command
 from slackcmds.core.response import CommandResponse
 from slackcmds.core.registry import CommandRegistry
+from slackcmds.core.validation import Parameter, ParameterType, min_length, min_value, max_value
 
 
 def separator(title):
@@ -440,9 +442,127 @@ def simulate_command(command_str, registry):
         print(f"Error occurred: {str(e)}\n")
 
 
+def phase5_demo(registry):
+    """Demonstrate Phase 5: Input Validation Framework."""
+    separator("PHASE 5: INPUT VALIDATION FRAMEWORK")
+    
+    print("Demonstrating command parameter validation...\n")
+    
+    # Create a command that requires validated parameters
+    class AddUserCommand(Command):
+        """Add a new user to the system.
+        
+        Usage: user add <username> <email> [role]
+        """
+        
+        def __init__(self):
+            super().__init__()
+            # Define expected parameters
+            self.add_parameters([
+                Parameter("username", ParameterType.STRING, required=True, 
+                          validators=[min_length(3)],
+                          help_text="Username (min 3 characters)"),
+                Parameter("email", ParameterType.EMAIL, required=True,
+                          help_text="Valid email address"),
+                Parameter("role", ParameterType.CHOICE, required=False,
+                          choices=["admin", "user", "guest"], default="user",
+                          help_text="User role (default: user)")
+            ])
+        
+        def _execute_impl(self, context):
+            # Access validated parameters
+            params = context["validated_params"]
+            username = params["username"]
+            email = params["email"]
+            role = params["role"]
+            
+            return CommandResponse.success(
+                f"Added user {username} with email {email} and role {role}",
+                ephemeral=False
+            )
+    
+    # Create a command with numeric validation
+    class SetLimitCommand(Command):
+        """Set a numeric limit.
+        
+        Usage: config set-limit <value>
+        """
+        
+        def __init__(self):
+            super().__init__()
+            self.add_parameter(
+                Parameter("value", ParameterType.INTEGER, required=True,
+                          validators=[min_value(1), max_value(100)],
+                          help_text="Limit value (1-100)")
+            )
+        
+        def _execute_impl(self, context):
+            value = context["validated_params"]["value"]
+            return CommandResponse.success(f"Limit set to {value}")
+    
+    # Register commands
+    user_cmd = registry.register_command("user", Command())
+    user_cmd.register_subcommand("add", AddUserCommand())
+    
+    config_cmd = registry.register_command("config", Command())
+    config_cmd.register_subcommand("set-limit", SetLimitCommand())
+    
+    # Test with valid parameters
+    print("Testing valid parameters...")
+    context = {"tokens": ["john", "john@example.com", "admin"]}
+    response = registry.route_command("user add", context)
+    print(f"Command 'user add' with valid parameters: {response.as_dict()}")
+    
+    # Test with invalid parameters
+    print("\nTesting invalid parameters...")
+    
+    # Missing required parameter
+    context = {"tokens": ["jo"]}
+    response = registry.route_command("user add", context)
+    print("\nMissing and too short username:")
+    print(response.as_dict())
+    
+    # Invalid email
+    context = {"tokens": ["john", "not-an-email"]}
+    response = registry.route_command("user add", context)
+    print("\nInvalid email:")
+    print(response.as_dict())
+    
+    # Invalid role choice
+    context = {"tokens": ["john", "john@example.com", "superuser"]}
+    response = registry.route_command("user add", context)
+    print("\nInvalid role choice:")
+    print(response.as_dict())
+    
+    # Test numeric validation
+    print("\nTesting numeric validation...")
+    
+    # Valid number
+    context = {"tokens": ["50"]}
+    response = registry.route_command("config set-limit", context)
+    print("\nValid limit value:")
+    print(response.as_dict())
+    
+    # Number out of range
+    context = {"tokens": ["150"]}
+    response = registry.route_command("config set-limit", context)
+    print("\nLimit value out of range:")
+    print(response.as_dict())
+    
+    # Not a number
+    context = {"tokens": ["not-a-number"]}
+    response = registry.route_command("config set-limit", context)
+    print("\nInvalid numeric value:")
+    print(response.as_dict())
+    
+    print("\nParameter validation framework demonstration complete!")
+    
+    return registry
+
+
 if __name__ == "__main__":
     print("PROGRESSIVE DEMO OF SLACK COMMANDS LIBRARY")
-    print("This demonstrates the features implemented in Phases 1, 2, 3, and 4")
+    print("This demonstrates the features implemented in Phases 1-5")
     
     # Run Phase 1 demo
     HelloCommand = phase1_demo()
@@ -463,4 +583,10 @@ if __name__ == "__main__":
     time.sleep(1)
     
     # Run Phase 4 demo
-    phase4_demo(registry) 
+    phase4_demo(registry)
+    
+    # Pause for readability
+    time.sleep(1)
+    
+    # Run Phase 5 demo
+    phase5_demo(registry) 

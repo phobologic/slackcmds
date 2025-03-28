@@ -7,9 +7,11 @@ providing common functionality for execution, validation, and help text.
 
 import logging
 import traceback
-from typing import Dict, List, Optional, Union, Any, TypeVar, cast
+from typing import Dict, List, Optional, Union, Any, TypeVar, cast, Tuple, Generic
 
 from .response import CommandResponse
+from . import validation
+from .validation import Parameter
 
 logger = logging.getLogger("slackcmds.command")
 
@@ -34,6 +36,7 @@ class Command:
         long_help: Detailed help text for the command.
         usage_example: Example of how to use the command.
         use_block_kit: Whether to use Block Kit formatting for help text.
+        parameters: List of parameter definitions for validation.
     """
     
     def __init__(self) -> None:
@@ -49,6 +52,8 @@ class Command:
         # When False, the first token must be a valid subcommand, otherwise an error is shown
         # By default, commands without subcommands accept arguments, and commands with subcommands don't
         self.accepts_arguments: bool = True
+        # Parameter definitions for validation
+        self.parameters: List[Parameter] = []
     
     def _set_name(self, name: str) -> T:
         """Set the command name (called during registration).
@@ -78,6 +83,44 @@ class Command:
         self.short_help = short_help
         self.long_help = long_help
         self.usage_example = usage_example
+        return cast(T, self)
+    
+    def add_parameter(self, parameter: Parameter) -> T:
+        """Add a parameter to this command.
+        
+        Args:
+            parameter: The Parameter object to add.
+            
+        Returns:
+            The command instance for chaining.
+        """
+        if not self.accepts_arguments:
+            logger.warning(
+                "Adding parameters to a command that doesn't accept arguments. "
+                "Set accepts_arguments=True in the command constructor."
+            )
+            self.accepts_arguments = True
+        
+        self.parameters.append(parameter)
+        return cast(T, self)
+    
+    def add_parameters(self, parameters: List[Parameter]) -> T:
+        """Add multiple parameters to this command.
+        
+        Args:
+            parameters: The parameters to add.
+            
+        Returns:
+            Self for method chaining.
+        """
+        if not self.accepts_arguments and parameters:
+            logger.warning(
+                "Adding parameters to a command that doesn't accept arguments. "
+                "Set accepts_arguments=True in the command constructor."
+            )
+            self.accepts_arguments = True
+            
+        self.parameters.extend(parameters)
         return cast(T, self)
     
     def execute(self, context: Optional[Dict[str, Any]] = None) -> CommandResponse:
@@ -204,7 +247,9 @@ class Command:
     def validate(self, context: Optional[Dict[str, Any]] = None) -> CommandResponse:
         """Validate command input before execution.
         
-        Override this method to implement custom validation logic.
+        This method performs validation of command parameters based on the 
+        parameter definitions specified for this command. It can be overridden
+        by subclasses to implement custom validation logic.
         
         Args:
             context: Dictionary containing execution context information.
@@ -212,6 +257,26 @@ class Command:
         Returns:
             CommandResponse: A response object indicating validation success/failure.
         """
+        if not self.parameters:
+            return CommandResponse("Input valid", success=True)
+        
+        # If we have parameter definitions, use the validation framework
+        if context is not None and "tokens" in context:
+            tokens = context.get("tokens", [])
+            named_params = context.get("named_params", {})
+            
+            # Validate parameters
+            result = validation.validate_params(self.parameters, tokens, named_params)
+            
+            # Add validated parameters to context for use in command execution
+            if result.valid:
+                context["validated_params"] = result.validated_params
+                return CommandResponse("Input valid", success=True)
+            else:
+                # Return validation errors
+                return result.as_command_response()
+        
+        # No tokens to validate
         return CommandResponse("Input valid", success=True)
     
     def show_invalid_subcommand_error(self, invalid_arg: str) -> CommandResponse:
