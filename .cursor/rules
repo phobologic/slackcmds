@@ -1,0 +1,19 @@
+####### type: ignore  # for Pylance
+#
+
+## **General Rules**
+   - Please ensure that all code has appropriate logging (debug, general, errors) and ensure that exceptions are logged fully when they are raised.
+   - Please ensure that all code has python 3.13 compatible type hints.
+
+## **Pythonic**
+   - Please make things as pythonic as possible in formatting and common syntax.
+   - This includes things like using exceptions when there is an issue, rather than returning true/false.
+   - Please use Google Style docstrings for all methods and classes.
+
+## **Patterns to avoid**
+   - I do not want to make any of the code async/asynchronous as it adds complexity and we do not need that kind of functionality.
+   - When I ask a question, do not automatically make changes.  Just answer the question as directly and concisely as possible.
+
+## **Development Tooling**
+   - Refer to the file "USING_UV.md" to understand uv, the software we are using for package development and management.
+   - We use pytest for running tests.
