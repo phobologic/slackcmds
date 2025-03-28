@@ -5,6 +5,7 @@ Progressive demo of the Slack Commands Library.
 This script progressively demonstrates the features implemented in:
 - Phase 1: Core Command and Response Structure
 - Phase 2: Command Registry and Routing
+- Phase 3: Help System Implementation
 """
 
 import time
@@ -129,11 +130,105 @@ def phase2_demo(HelloCommand):
     
     response = registry.route_command("user list help", {})
     print("Route 'user list help' (with override):", response.as_dict())
+    
+    # Return the registry and commands for phase 3
+    return registry, user_cmd, list_cmd
+
+
+def phase3_demo(registry, user_cmd, list_cmd):
+    """Demonstrate Phase 3: Help System Implementation."""
+    separator("PHASE 3: HELP SYSTEM IMPLEMENTATION")
+    
+    print("Enhancing commands with usage examples...\n")
+    
+    # Add usage example to a command
+    list_cmd.set_help(
+        short_help="List all users",
+        long_help="Display a comprehensive list of all users in the system in a formatted output.",
+        usage_example="user list [--filter=active]"
+    )
+    
+    # Test help with usage example
+    response = registry.route_command("user list help", {})
+    print("Help with usage example:", response.as_dict())
+    
+    print("\nDemonstrating Block Kit formatted help...\n")
+    
+    # Create a new command with Block Kit formatting
+    class ConfigCommand(Command):
+        """Manage system configuration.
+        
+        This command allows you to view and modify system configuration settings.
+        You can list all settings, get specific settings, or update settings.
+        """
+        
+        def __init__(self):
+            super().__init__()
+            self.set_help(use_block_kit=True)
+    
+    config_cmd = registry.register_command("config", ConfigCommand())
+    
+    class GetConfigCommand(Command):
+        """Get the value of a configuration setting."""
+        
+        def __init__(self):
+            super().__init__()
+            self.set_help(
+                usage_example="config get <setting_name>",
+                use_block_kit=True
+            )
+        
+        def execute(self, context=None):
+            return CommandResponse("Configuration setting value would be displayed here")
+    
+    config_cmd.register_subcommand("get", GetConfigCommand())
+    
+    class SetConfigCommand(Command):
+        """Set a configuration setting value."""
+        
+        def __init__(self):
+            super().__init__()
+            self.set_help(
+                usage_example="config set <setting_name> <value>",
+                use_block_kit=True
+            )
+        
+        def execute(self, context=None):
+            return CommandResponse.success("Configuration setting updated")
+    
+    config_cmd.register_subcommand("set", SetConfigCommand())
+    
+    # Test Block Kit formatted help
+    response = registry.route_command("config help", {})
+    print("Block Kit formatted help:")
+    
+    # Print each block for clarity
+    blocks = response.content
+    for i, block in enumerate(blocks):
+        print(f"\nBlock {i+1}:")
+        print(block)
+    
+    # Create a registry with Block Kit top-level help
+    print("\nDemonstrating Block Kit formatted top-level help...\n")
+    block_kit_registry = CommandRegistry(help_format="block_kit")
+    
+    # Register some commands
+    block_kit_registry.register_command("hello", HelloCommand())
+    block_kit_registry.register_command("config", ConfigCommand())
+    
+    # Get top-level help
+    response = block_kit_registry.route_command("help", {})
+    print("Block Kit top-level help:")
+    
+    blocks = response.content
+    for i, block in enumerate(blocks):
+        print(f"\nBlock {i+1}:")
+        print(block)
 
 
 if __name__ == "__main__":
     print("PROGRESSIVE DEMO OF SLACK COMMANDS LIBRARY")
-    print("This demonstrates the features implemented in Phase 1 and 2")
+    print("This demonstrates the features implemented in Phases 1, 2, and 3")
     
     # Run Phase 1 demo
     HelloCommand = phase1_demo()
@@ -142,4 +237,10 @@ if __name__ == "__main__":
     time.sleep(1)
     
     # Run Phase 2 demo
-    phase2_demo(HelloCommand) 
+    registry, user_cmd, list_cmd = phase2_demo(HelloCommand)
+    
+    # Pause for readability
+    time.sleep(1)
+    
+    # Run Phase 3 demo
+    phase3_demo(registry, user_cmd, list_cmd) 

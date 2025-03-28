@@ -12,6 +12,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "black>=25.1.0",
+    "pytest-cov>=6.0.0",
     "pytest>=8.3.5",
     "ruff>=0.11.2",
 ]
@@ -23,7 +24,7 @@ build-backend = "hatchling.build"
 [tool.pytest.ini_options]
 testpaths = ["slackcmds"]
 python_files = ["test_*.py"]
-addopts = "-v --cov=sologm --cov-report=term-missing"
+addopts = "-v --cov=slackcmds --cov-report=term-missing"
 log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"

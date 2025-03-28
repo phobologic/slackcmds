@@ -6,7 +6,7 @@ routing commands and subcommands.
 """
 
 import logging
-from typing import Dict, List, Optional, Any, TypeVar, cast
+from typing import Dict, List, Optional, Any, TypeVar, cast, Union, Literal
 
 from .command import Command
 from .response import CommandResponse
@@ -22,11 +22,17 @@ class CommandRegistry:
     
     Attributes:
         top_level_commands: Dictionary of registered top-level commands.
+        help_format: Format for help text display ('text' or 'block_kit').
     """
     
-    def __init__(self) -> None:
-        """Initialize a new command registry."""
+    def __init__(self, help_format: Literal['text', 'block_kit'] = 'text') -> None:
+        """Initialize a new command registry.
+        
+        Args:
+            help_format: The format to use for help text display ('text' or 'block_kit').
+        """
         self.top_level_commands: Dict[str, Command] = {}
+        self.help_format = help_format
     
     def register_command(self, name: str, command_instance: Command) -> Command:
         """Register a top-level command.
@@ -63,6 +69,10 @@ class CommandRegistry:
         # Split command into parts
         parts = command_string.strip().split()
         cmd_name = parts[0].lower()
+        
+        # Check if this is a help command
+        if cmd_name == 'help':
+            return self._show_top_level_help()
         
         # Check if this is a top-level command
         if cmd_name not in self.top_level_commands:
@@ -130,6 +140,10 @@ class CommandRegistry:
         Returns:
             CommandResponse: A formatted help response listing all commands.
         """
+        if self.help_format == 'block_kit':
+            return self._generate_block_kit_help()
+        
+        # Text-based help format
         help_text = "*Available Commands:*\n"
         
         for cmd_name, cmd in self.top_level_commands.items():
@@ -142,3 +156,62 @@ class CommandRegistry:
         
         help_text += "\nType `<command> help` for more details on a specific command."
         return CommandResponse(help_text)
+    
+    def _generate_block_kit_help(self) -> CommandResponse:
+        """Generate Block Kit formatted top-level help.
+        
+        Returns:
+            CommandResponse: A response with Block Kit formatted help.
+        """
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": "Available Commands"
+                }
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": "Here are the commands you can use:"
+                }
+            }
+        ]
+        
+        # Create fields for commands
+        commands_list = ""
+        for cmd_name, cmd in self.top_level_commands.items():
+            # Get short description
+            short_desc = cmd.short_help
+            if not short_desc and cmd.__doc__:
+                short_desc = cmd.__doc__.strip().split('\n')[0]
+            
+            commands_list += f"• `{cmd_name}`: {short_desc}\n"
+        
+        if commands_list:
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": commands_list
+                }
+            })
+        
+        # Add usage hint
+        blocks.append({
+            "type": "divider"
+        })
+        
+        blocks.append({
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": "Type `<command> help` for more details on a specific command."
+                }
+            ]
+        })
+        
+        return CommandResponse.with_blocks(blocks)

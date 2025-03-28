@@ -28,6 +28,8 @@ class Command:
         subcommands: Dictionary of registered subcommands.
         short_help: Short description of the command.
         long_help: Detailed help text for the command.
+        usage_example: Example of how to use the command.
+        use_block_kit: Whether to use Block Kit formatting for help text.
     """
     
     def __init__(self) -> None:
@@ -36,6 +38,8 @@ class Command:
         self.subcommands: Dict[str, 'Command'] = {}
         self.short_help: Optional[str] = None
         self.long_help: Optional[str] = None
+        self.usage_example: Optional[str] = None
+        self.use_block_kit: bool = False
     
     def _set_name(self, name: str) -> T:
         """Set the command name (called during registration).
@@ -49,18 +53,23 @@ class Command:
         self.name = name
         return cast(T, self)
     
-    def set_help(self, short_help: Optional[str] = None, long_help: Optional[str] = None) -> T:
+    def set_help(self, short_help: Optional[str] = None, long_help: Optional[str] = None, 
+                usage_example: Optional[str] = None, use_block_kit: bool = False) -> T:
         """Override the default help text generated from docstrings.
         
         Args:
             short_help: Brief description of the command.
             long_help: Detailed help text for the command.
+            usage_example: Example of how to use the command.
+            use_block_kit: Whether to use Block Kit formatting for help display.
             
         Returns:
             Self for method chaining.
         """
         self.short_help = short_help
         self.long_help = long_help
+        self.usage_example = usage_example
+        self.use_block_kit = use_block_kit
         return cast(T, self)
         
     def execute(self, context: Optional[Dict[str, Any]] = None) -> CommandResponse:
@@ -136,11 +145,24 @@ class Command:
         if not command_description and self.__doc__:
             command_description = self.__doc__.strip()
         
-        # Generate help text
+        # Get usage example
+        usage = self.usage_example
+        if not usage and self.name:
+            usage = f"{self.name}"
+            
+        # If we're using Block Kit formatting
+        if self.use_block_kit:
+            return self._generate_block_kit_help(title, command_description, usage)
+        
+        # Generate text-based help
         help_text = f"*{title}*\n\n"
         
         if command_description:
             help_text += f"{command_description}\n\n"
+        
+        # Add usage example
+        if usage:
+            help_text += f"*Usage:*\n`{usage}`\n\n"
         
         # Add subcommands list if any
         if self.subcommands:
@@ -156,6 +178,86 @@ class Command:
             help_text += f"\nUse `{self.name} help <subcommand>` for more details on a specific subcommand."
         
         return CommandResponse(help_text)
+    
+    def _generate_block_kit_help(self, title: str, description: Optional[str] = None, 
+                                usage: Optional[str] = None) -> CommandResponse:
+        """Generate Block Kit formatted help text.
+        
+        Args:
+            title: The title of the help text.
+            description: Detailed description of the command.
+            usage: Example usage of the command.
+            
+        Returns:
+            CommandResponse: A response with Block Kit formatted help.
+        """
+        blocks = [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": title
+                }
+            }
+        ]
+        
+        # Add description if available
+        if description:
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": description
+                }
+            })
+        
+        # Add usage example if available
+        if usage:
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Usage:*\n`{usage}`"
+                }
+            })
+        
+        # Add subcommands if any
+        if self.subcommands:
+            subcommand_text = "*Available Subcommands:*\n"
+            for subcmd_name, subcmd in self.subcommands.items():
+                # Get short description from subcommand
+                short_desc = subcmd.short_help
+                if not short_desc and subcmd.__doc__:
+                    short_desc = subcmd.__doc__.strip().split('\n')[0]
+                
+                subcommand_text += f"• `{subcmd_name}`: {short_desc}\n"
+            
+            subcommand_text += f"\nUse `{self.name} help <subcommand>` for more details on a specific subcommand."
+            
+            blocks.append({
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": subcommand_text
+                }
+            })
+        
+        # Add divider and context
+        blocks.append({
+            "type": "divider"
+        })
+        
+        blocks.append({
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": "Type `help` for a list of all commands."
+                }
+            ]
+        })
+        
+        return CommandResponse.with_blocks(blocks)
     
     def register_subcommand(self, name: str, command_instance: 'Command') -> 'Command':
         """Register a subcommand.
